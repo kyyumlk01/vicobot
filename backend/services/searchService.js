@@ -46,32 +46,36 @@ async function incrementSearchCount(userId) {
     .eq('id', userId);
 }
 
-async function searchTopic(userId, topic, category, language) {
+async function searchTopic(userId, topic, category, language, bypassCache = false, variation = 0) {
   const hash = generateHash(topic, category, language);
 
-  const { data: cached } = await supabase
-    .from('cache')
-    .select('result')
-    .eq('topic_hash', hash)
-    .gt('expires_at', new Date().toISOString())
-    .single();
+  if (!bypassCache) {
+    const { data: cached } = await supabase
+      .from('cache')
+      .select('result')
+      .eq('topic_hash', hash)
+      .gt('expires_at', new Date().toISOString())
+      .single();
 
-  if (cached) {
-    return { result: cached.result, fromCache: true };
+    if (cached) {
+      return { result: cached.result, fromCache: true };
+    }
   }
 
-  const result = await analyzeTopicWithGroq(topic, category, language);
+  const result = await analyzeTopicWithGroq(topic, category, language, variation);
 
-  await supabase
-    .from('cache')
-    .upsert({
-      topic_hash: hash,
-      topic,
-      category,
-      language,
-      result,
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    });
+  if (!bypassCache) {
+    await supabase
+      .from('cache')
+      .upsert({
+        topic_hash: hash,
+        topic,
+        category,
+        language,
+        result,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+  }
 
   return { result, fromCache: false };
 }

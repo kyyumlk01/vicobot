@@ -1,7 +1,7 @@
 const { searchTopic, checkDailyLimit, incrementSearchCount } = require('../services/searchService');
 
 async function handleSearch(req, res) {
-  const { topic, category, language } = req.body;
+  const { topic, category, language, tryAnother = false, variation = 0 } = req.body;
 
   if (!topic || !category || !language) {
     return res.status(400).json({ error: 'topic, category, and language are required' });
@@ -17,7 +17,14 @@ async function handleSearch(req, res) {
       return res.status(429).json({ error: 'Daily search limit reached. Come back tomorrow.' });
     }
 
-    const { result, fromCache } = await searchTopic(req.user.id, topic.trim(), category, language);
+    const { result, fromCache } = await searchTopic(
+      req.user.id,
+      topic.trim(),
+      category,
+      language,
+      tryAnother,
+      variation
+    );
 
     await incrementSearchCount(req.user.id);
 

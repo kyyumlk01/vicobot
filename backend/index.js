@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 
 const searchRouter = require('./routes/search');
+const savedRouter = require('./routes/saved');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -18,6 +19,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/search', searchRouter);
+app.use('/api/saved', savedRouter);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });

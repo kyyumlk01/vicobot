@@ -2,10 +2,18 @@ const Groq = require('groq-sdk');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-async function analyzeTopicWithGroq(topic, category, language) {
+const ANGLES = [
+  'Focus on a unique beginner-friendly angle that most creators miss.',
+  'Focus on a controversial or counterintuitive take on this topic.',
+  'Focus on the most trending and viral potential angle for this topic.',
+];
+
+async function analyzeTopicWithGroq(topic, category, language, variation = 0) {
   const langInstruction = language === 'hindi'
     ? 'Respond in Hindi/Hinglish mixed language.'
     : 'Respond in English.';
+
+  const angleHint = ANGLES[variation % ANGLES.length];
 
   const prompt = `You are an expert YouTube content strategist for Indian creators.
 
@@ -13,6 +21,7 @@ Analyze this YouTube topic and return ONLY a valid JSON object, no markdown, no 
 
 Topic: "${topic}"
 Category: ${category}
+Angle: ${angleHint}
 ${langInstruction}
 
 Return exactly this JSON structure:
@@ -32,7 +41,7 @@ Return exactly this JSON structure:
   const response = await groq.chat.completions.create({
     model: 'llama-3.3-70b-versatile',
     messages: [{ role: 'user', content: prompt }],
-    temperature: 0.7,
+    temperature: 0.7 + variation * 0.1,
     max_tokens: 1000,
   });
 
