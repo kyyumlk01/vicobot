@@ -20,7 +20,7 @@ async function checkDailyLimit(userId) {
 
   if (error) throw new Error('Failed to fetch user profile');
 
-  if (profile.last_search_date === today && profile.daily_searches >= 5) {
+  if (profile.last_search_date === today && profile.daily_searches >= 3) {
     return false;
   }
   return true;
