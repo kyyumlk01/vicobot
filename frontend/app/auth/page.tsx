@@ -21,11 +21,11 @@ export default function AuthPage() {
       if (mode === 'signup') {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        router.push('/dashboard');
+        router.push('/onboarding');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        router.push('/dashboard');
+        router.push('/onboarding');
       }
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message);

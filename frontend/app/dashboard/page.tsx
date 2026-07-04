@@ -41,6 +41,7 @@ export default function Dashboard() {
   const [savingTopic, setSavingTopic] = useState(false);
   const [topicSaved, setTopicSaved] = useState(false);
   const [variationCount, setVariationCount] = useState(0);
+  const [creatorLevel, setCreatorLevel] = useState<string>('new');
   const router = useRouter();
   const supabase = createClient();
 
@@ -57,6 +58,12 @@ if (categoryParam) setCategory(categoryParam);
         return;
       }
       await fetchSavedTopics();
+      const { data: profile } = await supabase
+  .from('profiles')
+  .select('creator_level')
+  .eq('id', user.id)
+  .single();
+if (profile) setCreatorLevel(profile.creator_level);
       setLoading(false);
     }
     checkAuth();
@@ -233,6 +240,20 @@ if (categoryParam) setCategory(categoryParam);
 
           {/* Left — search + result */}
           <div>
+{/* Creator tip */}
+<div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 12 }}>
+  <span style={{ fontSize: 20 }}>
+    {creatorLevel === 'new' ? '🌱' : creatorLevel === 'growing' ? '📈' : '🚀'}
+  </span>
+  <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+    {creatorLevel === 'new'
+      ? 'Tip: Start with Easy competition topics to build momentum before chasing harder niches.'
+      : creatorLevel === 'growing'
+      ? 'Tip: Medium competition topics with 75+ demand score are your best bet for faster growth right now.'
+      : 'Tip: Your channel has authority — go for high-demand topics regardless of competition level.'}
+  </p>
+</div>
+
             {/* Search box */}
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '22px', marginBottom: 20 }}>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
