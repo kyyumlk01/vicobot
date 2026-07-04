@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 const CATEGORIES = ['Tech', 'Fitness', 'Gaming', 'Finance', 'Travel', 'Food', 'Education', 'Entertainment'];
+const TRENDING_CATS = ['All', 'Tech', 'Gaming', 'Entertainment', 'Education'];
 
 interface SearchResult {
   demandScore: number;
@@ -28,6 +29,14 @@ interface SavedTopic {
   created_at: string;
 }
 
+interface TrendingVideo {
+  videoId: string;
+  title: string;
+  channel: string;
+  views: number;
+  thumbnail: string;
+}
+
 export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [topic, setTopic] = useState('');
@@ -42,28 +51,35 @@ export default function Dashboard() {
   const [topicSaved, setTopicSaved] = useState(false);
   const [variationCount, setVariationCount] = useState(0);
   const [creatorLevel, setCreatorLevel] = useState<string>('new');
+  const [trendingVideos, setTrendingVideos] = useState<TrendingVideo[]>([]);
+  const [trendingCategory, setTrendingCategory] = useState('All');
+  const [loadingTrending, setLoadingTrending] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
   useEffect(() => {
     async function checkAuth() {
       const params = new URLSearchParams(window.location.search);
-const topicParam = params.get('topic');
-const categoryParam = params.get('category');
-if (topicParam) setTopic(topicParam);
-if (categoryParam) setCategory(categoryParam);
+      const topicParam = params.get('topic');
+      const categoryParam = params.get('category');
+      if (topicParam) setTopic(topicParam);
+      if (categoryParam) setCategory(categoryParam);
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         router.push('/auth');
         return;
       }
-      await fetchSavedTopics();
+
       const { data: profile } = await supabase
-  .from('profiles')
-  .select('creator_level')
-  .eq('id', user.id)
-  .single();
-if (profile) setCreatorLevel(profile.creator_level);
+        .from('profiles')
+        .select('creator_level')
+        .eq('id', user.id)
+        .single();
+      if (profile) setCreatorLevel(profile.creator_level);
+
+      await fetchSavedTopics();
+      await fetchTrending('All');
       setLoading(false);
     }
     checkAuth();
@@ -73,7 +89,6 @@ if (profile) setCreatorLevel(profile.creator_level);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-
       const response = await fetch('http://localhost:5000/api/saved', {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       });
@@ -81,6 +96,23 @@ if (profile) setCreatorLevel(profile.creator_level);
       if (response.ok) setSavedTopics(data.topics);
     } catch (err) {
       console.error('Failed to fetch saved topics');
+    }
+  }
+
+  async function fetchTrending(cat: string) {
+    setLoadingTrending(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const response = await fetch(`http://localhost:5000/api/trending?category=${cat}`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+      });
+      const data = await response.json();
+      if (response.ok) setTrendingVideos(data.videos);
+    } catch (err) {
+      console.error('Failed to fetch trending');
+    } finally {
+      setLoadingTrending(false);
     }
   }
 
@@ -96,10 +128,7 @@ if (profile) setCreatorLevel(profile.creator_level);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push('/auth');
-        return;
-      }
+      if (!session) { router.push('/auth'); return; }
 
       const response = await fetch('http://localhost:5000/api/search', {
         method: 'POST',
@@ -107,21 +136,11 @@ if (profile) setCreatorLevel(profile.creator_level);
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          topic: topic.trim(),
-          category,
-          language,
-          tryAnother: bypassCache,
-          variation,
-        }),
+        body: JSON.stringify({ topic: topic.trim(), category, language, tryAnother: bypassCache, variation }),
       });
 
       const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Search failed');
-      }
-
+      if (!response.ok) throw new Error(data.error || 'Search failed');
       setResult(data.result);
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message);
@@ -145,7 +164,6 @@ if (profile) setCreatorLevel(profile.creator_level);
   async function handleSaveTopic() {
     if (!result) return;
     setSavingTopic(true);
-
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -156,11 +174,7 @@ if (profile) setCreatorLevel(profile.creator_level);
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({
-          topic: topic.trim(),
-          score: result.demandScore,
-          category,
-        }),
+        body: JSON.stringify({ topic: topic.trim(), score: result.demandScore, category }),
       });
 
       const data = await response.json();
@@ -180,7 +194,6 @@ if (profile) setCreatorLevel(profile.creator_level);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-
       await fetch(`http://localhost:5000/api/saved/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${session.access_token}` },
@@ -203,6 +216,12 @@ if (profile) setCreatorLevel(profile.creator_level);
     return 'var(--amber)';
   }
 
+  function useTrendingTopic(title: string) {
+    const clean = title.replace(/[^\w\s]/gi, '').trim();
+    setTopic(clean);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -216,7 +235,7 @@ if (profile) setCreatorLevel(profile.creator_level);
       <div className="wrap">
 
         {/* Top bar */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <img src="/logo-amber-for-dark-theme.png" alt="Vicobot" style={{ height: 24 }} />
             <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18 }}>Vicobot</span>
@@ -235,24 +254,84 @@ if (profile) setCreatorLevel(profile.creator_level);
           </div>
         </div>
 
+        {/* Creator tip */}
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '13px 18px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 18 }}>
+            {creatorLevel === 'new' ? '🌱' : creatorLevel === 'growing' ? '📈' : '🚀'}
+          </span>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            {creatorLevel === 'new'
+              ? 'Tip: Start with Easy competition topics to build momentum before chasing harder niches.'
+              : creatorLevel === 'growing'
+              ? 'Tip: Medium competition topics with 75+ demand score are your best bet for faster growth right now.'
+              : 'Tip: Your channel has authority — go for high-demand topics regardless of competition level.'}
+          </p>
+        </div>
+
         {/* Main grid */}
         <div style={{ display: 'grid', gridTemplateColumns: savedTopics.length > 0 ? '1fr 260px' : '1fr', gap: 20, alignItems: 'start' }}>
 
-          {/* Left — search + result */}
+          {/* Left column */}
           <div>
-{/* Creator tip */}
-<div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 18px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 12 }}>
-  <span style={{ fontSize: 20 }}>
-    {creatorLevel === 'new' ? '🌱' : creatorLevel === 'growing' ? '📈' : '🚀'}
-  </span>
-  <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-    {creatorLevel === 'new'
-      ? 'Tip: Start with Easy competition topics to build momentum before chasing harder niches.'
-      : creatorLevel === 'growing'
-      ? 'Tip: Medium competition topics with 75+ demand score are your best bet for faster growth right now.'
-      : 'Tip: Your channel has authority — go for high-demand topics regardless of competition level.'}
-  </p>
-</div>
+
+            {/* Trending Now */}
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '20px', marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#FF4F8B', display: 'inline-block' }}></span>
+                  <p style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 14 }}>Trending Now</p>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>India · YouTube</span>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {TRENDING_CATS.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => { setTrendingCategory(cat); fetchTrending(cat); }}
+                      style={{
+                        fontSize: 11, padding: '4px 11px', borderRadius: 20, cursor: 'pointer',
+                        border: `1px solid ${trendingCategory === cat ? 'var(--amber)' : 'var(--border)'}`,
+                        background: trendingCategory === cat ? 'rgba(255,182,72,0.14)' : 'var(--surface-2)',
+                        color: trendingCategory === cat ? 'var(--amber)' : 'var(--text-muted)',
+                      }}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {loadingTrending ? (
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', textAlign: 'center', padding: '16px 0' }}>
+                  Fetching trending videos...
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {trendingVideos.map((video, i) => (
+                    <div
+                      key={video.videoId}
+                      onClick={() => useTrendingTopic(video.title)}
+                      style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '10px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', cursor: 'pointer' }}
+                    >
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', minWidth: 18, textAlign: 'center' }}>
+                        {i + 1}
+                      </span>
+                      {video.thumbnail && (
+                        <img src={video.thumbnail} alt={video.title} style={{ width: 60, height: 34, borderRadius: 5, objectFit: 'cover', flexShrink: 0 }} />
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.3, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {video.title}
+                        </p>
+                        <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                          {video.channel} · {(video.views / 1000).toFixed(0)}K views
+                        </p>
+                      </div>
+                      <span style={{ fontSize: 11, color: 'var(--teal)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>Use →</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Search box */}
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '22px', marginBottom: 20 }}>
@@ -289,17 +368,13 @@ if (profile) setCreatorLevel(profile.creator_level);
                   {searching ? 'Analyzing...' : '✨ Analyze'}
                 </button>
               </div>
-              {error && (
-                <p style={{ marginTop: 12, fontSize: 13, color: '#FF4F8B' }}>{error}</p>
-              )}
+              {error && <p style={{ marginTop: 12, fontSize: 13, color: '#FF4F8B' }}>{error}</p>}
             </div>
 
             {/* Loading */}
             {searching && (
               <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '40px', textAlign: 'center' }}>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-muted)' }}>
-                  Scanning YouTube data...
-                </p>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-muted)' }}>Scanning YouTube data...</p>
               </div>
             )}
 
@@ -389,7 +464,7 @@ if (profile) setCreatorLevel(profile.creator_level);
             )}
           </div>
 
-          {/* Right — saved topics sidebar */}
+          {/* Right — saved sidebar */}
           {savedTopics.length > 0 && (
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px', position: 'sticky', top: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
