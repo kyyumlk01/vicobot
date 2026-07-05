@@ -7,6 +7,7 @@ const savedRouter = require('./routes/saved');
 const profileRouter = require('./routes/profile');
 const trendingRouter = require('./routes/trending');
 const proRouter = require('./routes/pro');
+const shareRouter = require('./routes/share');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -26,6 +27,7 @@ app.use('/api/saved', savedRouter);
 app.use('/api/profile', profileRouter);
 app.use('/api/trending', trendingRouter);
 app.use('/api/pro', proRouter);
+app.use('/api/share', shareRouter);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });

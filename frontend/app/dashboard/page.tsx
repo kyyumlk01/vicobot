@@ -90,6 +90,10 @@ const [loadingPro, setLoadingPro] = useState(false);
 const [copiedTag, setCopiedTag] = useState<number | null>(null);
 const [copiedDesc, setCopiedDesc] = useState(false);
 const [copiedComment, setCopiedComment] = useState(false);
+const [shareId, setShareId] = useState<string | null>(null);
+const [sharing, setSharing] = useState(false);
+const [shareModalOpen, setShareModalOpen] = useState(false);
+const [copiedShareLink, setCopiedShareLink] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -189,6 +193,44 @@ function copyText(text: string, setter: (v: boolean) => void) {
   navigator.clipboard?.writeText(text);
   setter(true);
   setTimeout(() => setter(false), 1500);
+}
+
+
+async function handleShare() {
+  if (!result) return;
+  setSharing(true);
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const response = await fetch('http://localhost:5000/api/share', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        topic: topic.trim(),
+        score: result.demandScore,
+        category,
+        competitionLevel: result.competitionLevel,
+        expectedViewsMin: result.expectedViewsMin,
+        expectedViewsMax: result.expectedViewsMax,
+        verdict: result.verdict,
+      }),
+    });
+
+    const data = await response.json();
+    if (response.ok) {
+      setShareId(data.shareId);
+      setShareModalOpen(true);
+    }
+  } catch (err) {
+    console.error('Failed to create share');
+  } finally {
+    setSharing(false);
+  }
 }
 
 
@@ -534,6 +576,15 @@ function copyText(text: string, setter: (v: boolean) => void) {
                   >
                     {topicSaved ? '✓ Saved' : savingTopic ? 'Saving...' : '📌 Save Topic'}
                   </button>
+
+                  <button
+  className="btn-ghost"
+  onClick={handleShare}
+  disabled={sharing}
+  style={{ fontSize: 13, padding: '9px 16px', opacity: sharing ? 0.7 : 1 }}
+>
+  {sharing ? 'Creating...' : '📤 Share'}
+</button>
                 </div>
 
                 {/* Pro Tools */}
@@ -736,6 +787,54 @@ function copyText(text: string, setter: (v: boolean) => void) {
 
         </div>
       </div>
+      {shareModalOpen && shareId && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: 20 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShareModalOpen(false); }}
+        >
+          <div style={{ width: 380, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 28, position: 'relative' }}>
+            <button
+              onClick={() => setShareModalOpen(false)}
+              style={{ position: 'absolute', top: 14, right: 16, fontSize: 18, color: 'var(--text-muted)', cursor: 'pointer', background: 'none', border: 'none' }}
+            >
+              ✕
+            </button>
+            <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 17, marginBottom: 6 }}>Share your result</p>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 22 }}>Share this topic analysis with other creators.</p>
+            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px', textAlign: 'center', marginBottom: 20 }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>DEMAND SCORE</p>
+              <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 48, color: 'var(--amber)', lineHeight: 1 }}>{result?.demandScore}</p>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>&quot;{topic}&quot;</p>
+            </div>
+            <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 9, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}>
+                vicobot.in/share/{shareId}
+              </p>
+              <button
+                onClick={() => {
+                  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://vicobot.in';
+                  navigator.clipboard?.writeText(`${origin}/share/${shareId}`);
+                  setCopiedShareLink(true);
+                  setTimeout(() => setCopiedShareLink(false), 1500);
+                }}
+                style={{ fontSize: 12, padding: '4px 10px', borderRadius: 6, background: copiedShareLink ? 'rgba(45,212,191,0.15)' : 'var(--surface)', border: `1px solid ${copiedShareLink ? 'var(--teal)' : 'var(--border)'}`, color: copiedShareLink ? 'var(--teal)' : 'var(--text-muted)', cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)' }}
+              >
+                {copiedShareLink ? '✓ Copied' : 'Copy'}
+              </button>
+            </div>
+            <button
+              onClick={() => {
+                const origin = typeof window !== 'undefined' ? window.location.origin : 'https://vicobot.in';
+                const text = `Check out this YouTube topic analysis on Vicobot! Score: ${result?.demandScore}/100 for "${topic}" 🔥\n${origin}/share/${shareId}`;
+                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+              }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '11px', borderRadius: 9, background: 'rgba(37,211,102,0.12)', border: '1px solid rgba(37,211,102,0.3)', color: '#25D366', fontSize: 14, fontWeight: 600, cursor: 'pointer', width: '100%' }}
+            >
+              <span>💬</span> Share on WhatsApp
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
