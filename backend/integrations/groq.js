@@ -8,34 +8,43 @@ const ANGLES = [
   'Focus on the most trending and viral potential angle for this topic.',
 ];
 
-async function analyzeTopicWithGroq(topic, category, language, variation = 0) {
+async function analyzeTopicWithGroq(topic, category, language, variation = 0, realData = null) {
   const langInstruction = language === 'hindi'
     ? 'Respond in Hindi/Hinglish mixed language.'
     : 'Respond in English.';
 
   const angleHint = ANGLES[variation % ANGLES.length];
 
+  const realDataContext = realData ? `
+Real YouTube data for this topic:
+- Average views of top videos: ${Math.round(realData.avgViews).toLocaleString()}
+- Median views: ${Math.round(realData.medianViews).toLocaleString()}
+- Highest performing video: ${realData.maxViews.toLocaleString()} views
+- Videos uploaded in last 90 days: ${realData.recentVideos}
+- Competition level (calculated): ${realData.competitionLevel}
+- Top videos: ${realData.topVideos.map(v => `"${v.title}" (${v.views.toLocaleString()} views)`).join(', ')}
+
+Use this real data to inform your analysis. Do NOT generate fake view numbers.
+` : 'No real YouTube data available — use general knowledge for Indian creators.';
+
   const prompt = `You are an expert YouTube content strategist for Indian creators.
 
-Analyze this YouTube topic and return ONLY a valid JSON object, no markdown, no explanation.
-
+Analyze this YouTube topic using the real data provided below.
 Topic: "${topic}"
 Category: ${category}
 Angle: ${angleHint}
 ${langInstruction}
 
-Return exactly this JSON structure:
+${realDataContext}
+
+Return ONLY a valid JSON object, no markdown, no explanation:
 {
-  "demandScore": <number 0-100>,
-  "expectedViewsMin": <number>,
-  "expectedViewsMax": <number>,
-  "competitionLevel": "<Easy|Medium|Hard>",
-  "uploadDay": "<best day to upload>",
-  "uploadTime": "<best time like 6-8 PM>",
-  "analysis": "<2-3 sentences about why this topic has potential>",
+  "uploadDay": "<best day to upload based on category>",
+  "uploadTime": "<best time like 6-8 PM based on category>",
+  "analysis": "<2-3 sentences explaining why this topic has potential, referencing the real view data>",
   "contentGaps": ["<gap 1>", "<gap 2>", "<gap 3>"],
   "titleIdeas": ["<title 1>", "<title 2>", "<title 3>", "<title 4>", "<title 5>"],
-  "verdict": "<1 sentence final recommendation>"
+  "verdict": "<1 sentence final recommendation based on real data>"
 }`;
 
   const response = await groq.chat.completions.create({

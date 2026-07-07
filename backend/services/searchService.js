@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const supabase = require('../integrations/supabase');
 const { analyzeTopicWithGroq } = require('../integrations/groq');
+const { searchTopicVideos } = require('../integrations/youtube');
 
 function generateHash(topic, category, language) {
   return crypto
@@ -62,7 +63,30 @@ async function searchTopic(userId, topic, category, language, bypassCache = fals
     }
   }
 
-  const result = await analyzeTopicWithGroq(topic, category, language, variation);
+  let realData = null;
+  try {
+    realData = await searchTopicVideos(topic, language);
+  } catch (err) {
+    console.error('[searchService] YouTube API error:', err.message);
+  }
+
+  const groqAnalysis = await analyzeTopicWithGroq(topic, category, language, variation, realData);
+
+  const result = {
+    demandScore: realData?.demandScore ?? groqAnalysis.demandScore ?? 50,
+    expectedViewsMin: realData?.expectedViewsMin ?? 5000,
+    expectedViewsMax: realData?.expectedViewsMax ?? 50000,
+    competitionLevel: realData?.competitionLevel ?? 'Medium',
+    uploadDay: groqAnalysis.uploadDay,
+    uploadTime: groqAnalysis.uploadTime,
+    analysis: groqAnalysis.analysis,
+    contentGaps: groqAnalysis.contentGaps,
+    titleIdeas: groqAnalysis.titleIdeas,
+    verdict: groqAnalysis.verdict,
+    topVideos: realData?.topVideos ?? [],
+    dataSource: realData ? 'youtube' : 'ai',
+    medianViews: realData?.medianViews ?? null,
+  };
 
   if (!bypassCache) {
     await supabase

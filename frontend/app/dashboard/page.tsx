@@ -19,6 +19,15 @@ interface SearchResult {
   contentGaps: string[];
   titleIdeas: string[];
   verdict: string;
+  topVideos: Array<{
+    videoId: string;
+    title: string;
+    channel: string;
+    views: number;
+    thumbnail: string;
+  }>;
+  dataSource: string;
+  medianViews: number | null;
 }
 
 interface SavedTopic {
@@ -83,17 +92,17 @@ export default function Dashboard() {
   const [trendingCategory, setTrendingCategory] = useState('All');
   const [loadingTrending, setLoadingTrending] = useState(false);
   const [activeProTab, setActiveProTab] = useState<'blueprint' | 'thumbnail' | 'seo' | null>(null);
-const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
-const [thumbnailResult, setThumbnailResult] = useState<ThumbnailResult | null>(null);
-const [seoResult, setSeoResult] = useState<SeoResult | null>(null);
-const [loadingPro, setLoadingPro] = useState(false);
-const [copiedTag, setCopiedTag] = useState<number | null>(null);
-const [copiedDesc, setCopiedDesc] = useState(false);
-const [copiedComment, setCopiedComment] = useState(false);
-const [shareId, setShareId] = useState<string | null>(null);
-const [sharing, setSharing] = useState(false);
-const [shareModalOpen, setShareModalOpen] = useState(false);
-const [copiedShareLink, setCopiedShareLink] = useState(false);
+  const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
+  const [thumbnailResult, setThumbnailResult] = useState<ThumbnailResult | null>(null);
+  const [seoResult, setSeoResult] = useState<SeoResult | null>(null);
+  const [loadingPro, setLoadingPro] = useState(false);
+  const [copiedTag, setCopiedTag] = useState<number | null>(null);
+  const [copiedDesc, setCopiedDesc] = useState(false);
+  const [copiedComment, setCopiedComment] = useState(false);
+  const [shareId, setShareId] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [copiedShareLink, setCopiedShareLink] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -155,84 +164,84 @@ const [copiedShareLink, setCopiedShareLink] = useState(false);
       setLoadingTrending(false);
     }
   }
-async function fetchProFeature(type: 'blueprint' | 'thumbnail' | 'seo') {
-  if (!result) return;
-  setActiveProTab(type);
-  setLoadingPro(true);
-  setBlueprint(null);
-  setThumbnailResult(null);
-  setSeoResult(null);
 
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+  async function fetchProFeature(type: 'blueprint' | 'thumbnail' | 'seo') {
+    if (!result) return;
+    setActiveProTab(type);
+    setLoadingPro(true);
+    setBlueprint(null);
+    setThumbnailResult(null);
+    setSeoResult(null);
 
-    const response = await fetch(`http://localhost:5000/api/pro/${type}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ topic: topic.trim(), category, language }),
-    });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Failed');
+      const response = await fetch(`http://localhost:5000/api/pro/${type}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ topic: topic.trim(), category, language }),
+      });
 
-    if (type === 'blueprint') setBlueprint(data.blueprint);
-    if (type === 'thumbnail') setThumbnailResult(data.thumbnail);
-    if (type === 'seo') setSeoResult(data.seo);
-  } catch (err) {
-    console.error(`Failed to fetch ${type}`);
-  } finally {
-    setLoadingPro(false);
-  }
-}
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed');
 
-function copyText(text: string, setter: (v: boolean) => void) {
-  navigator.clipboard?.writeText(text);
-  setter(true);
-  setTimeout(() => setter(false), 1500);
-}
-
-
-async function handleShare() {
-  if (!result) return;
-  setSharing(true);
-
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-
-    const response = await fetch('http://localhost:5000/api/share', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({
-        topic: topic.trim(),
-        score: result.demandScore,
-        category,
-        competitionLevel: result.competitionLevel,
-        expectedViewsMin: result.expectedViewsMin,
-        expectedViewsMax: result.expectedViewsMax,
-        verdict: result.verdict,
-      }),
-    });
-
-    const data = await response.json();
-    if (response.ok) {
-      setShareId(data.shareId);
-      setShareModalOpen(true);
+      if (type === 'blueprint') setBlueprint(data.blueprint);
+      if (type === 'thumbnail') setThumbnailResult(data.thumbnail);
+      if (type === 'seo') setSeoResult(data.seo);
+    } catch (err) {
+      console.error(`Failed to fetch ${type}`);
+    } finally {
+      setLoadingPro(false);
     }
-  } catch (err) {
-    console.error('Failed to create share');
-  } finally {
-    setSharing(false);
   }
-}
 
+  function copyText(text: string, setter: (v: boolean) => void) {
+    navigator.clipboard?.writeText(text);
+    setter(true);
+    setTimeout(() => setter(false), 1500);
+  }
+
+  async function handleShare() {
+    if (!result) return;
+    const currentResult = result;
+    setSharing(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const response = await fetch('http://localhost:5000/api/share', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          topic: topic.trim(),
+          score: currentResult.demandScore,
+          category,
+          competitionLevel: currentResult.competitionLevel,
+          expectedViewsMin: currentResult.expectedViewsMin,
+          expectedViewsMax: currentResult.expectedViewsMax,
+          verdict: currentResult.verdict,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setShareId(data.shareId);
+        setShareModalOpen(true);
+      }
+    } catch (err) {
+      console.error('Failed to create share');
+    } finally {
+      setSharing(false);
+    }
+  }
 
   async function runSearch(bypassCache = false, variation = 0) {
     if (!topic.trim() || topic.trim().length < 3) {
@@ -281,6 +290,7 @@ async function handleShare() {
 
   async function handleSaveTopic() {
     if (!result) return;
+    const currentResult = result;
     setSavingTopic(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -292,7 +302,7 @@ async function handleShare() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ topic: topic.trim(), score: result.demandScore, category }),
+        body: JSON.stringify({ topic: topic.trim(), score: currentResult.demandScore, category }),
       });
 
       const data = await response.json();
@@ -522,6 +532,55 @@ async function handleShare() {
                   ))}
                 </div>
 
+                {/* Data source badge */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                  <span style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 11, padding: '3px 9px',
+                    borderRadius: 20, border: '1px solid var(--border)',
+                    color: result.dataSource === 'youtube' ? 'var(--teal)' : 'var(--text-muted)',
+                    background: result.dataSource === 'youtube' ? 'rgba(45,212,191,0.1)' : 'var(--surface-2)',
+                  }}>
+                    {result.dataSource === 'youtube' ? '✓ Real YouTube data' : '⚠ AI estimate (YouTube data unavailable)'}
+                  </span>
+                  {result.medianViews && (
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>
+                      Median views on this topic: {(result.medianViews / 1000).toFixed(0)}K
+                    </span>
+                  )}
+                </div>
+
+                {/* Competitor videos */}
+                {result.topVideos && result.topVideos.length > 0 && (
+                  <div style={{ marginBottom: 16 }}>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                      Top videos on this topic right now
+                    </p>
+                    {result.topVideos.map((video, i) => (
+                      <a
+                        key={video.videoId}
+                        href={`https://youtube.com/watch?v=${video.videoId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '10px', borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', marginBottom: 8, textDecoration: 'none' }}
+                      >
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', minWidth: 16 }}>{i + 1}</span>
+                        {video.thumbnail && (
+                          <img src={video.thumbnail} alt="" style={{ width: 60, height: 34, borderRadius: 5, objectFit: 'cover', flexShrink: 0 }} />
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: 13, fontWeight: 500, lineHeight: 1.3, marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text)' }}>
+                            {video.title}
+                          </p>
+                          <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                            {video.channel} · {(video.views / 1000).toFixed(0)}K views
+                          </p>
+                        </div>
+                        <span style={{ fontSize: 11, color: 'var(--teal)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>↗</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+
                 {/* Analysis */}
                 <div style={{ marginBottom: 16 }}>
                   <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Analysis</p>
@@ -578,174 +637,170 @@ async function handleShare() {
                   </button>
 
                   <button
-  className="btn-ghost"
-  onClick={handleShare}
-  disabled={sharing}
-  style={{ fontSize: 13, padding: '9px 16px', opacity: sharing ? 0.7 : 1 }}
->
-  {sharing ? 'Creating...' : '📤 Share'}
-</button>
+                    className="btn-ghost"
+                    onClick={handleShare}
+                    disabled={sharing}
+                    style={{ fontSize: 13, padding: '9px 16px', opacity: sharing ? 0.7 : 1 }}
+                  >
+                    {sharing ? 'Creating...' : '📤 Share'}
+                  </button>
                 </div>
 
                 {/* Pro Tools */}
-<div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
-  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-    <span style={{ background: 'var(--grad)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13 }}>
-      ✦ Pro Tools
-    </span>
-    <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>free during beta</span>
-  </div>
+                <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                    <span style={{ background: 'var(--grad)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13 }}>
+                      ✦ Pro Tools
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>free during beta</span>
+                  </div>
 
-  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-    {[
-      { key: 'blueprint', label: '📝 Video Blueprint' },
-      { key: 'thumbnail', label: '🖼️ Thumbnail Ideas' },
-      { key: 'seo', label: '🏷️ SEO Tags' },
-    ].map(tab => (
-      <button
-        key={tab.key}
-        onClick={() => fetchProFeature(tab.key as 'blueprint' | 'thumbnail' | 'seo')}
-        disabled={loadingPro}
-        style={{
-          fontSize: 13, padding: '9px 16px', borderRadius: 9, cursor: 'pointer',
-          border: `1px solid ${activeProTab === tab.key ? 'var(--accent3)' : 'var(--border)'}`,
-          background: activeProTab === tab.key ? 'rgba(124,92,255,0.12)' : 'var(--surface-2)',
-          color: activeProTab === tab.key ? 'var(--accent3)' : 'var(--text-muted)',
-          opacity: loadingPro ? 0.7 : 1,
-        }}
-      >
-        {tab.label}
-      </button>
-    ))}
-  </div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+                    {[
+                      { key: 'blueprint', label: '📝 Video Blueprint' },
+                      { key: 'thumbnail', label: '🖼️ Thumbnail Ideas' },
+                      { key: 'seo', label: '🏷️ SEO Tags' },
+                    ].map(tab => (
+                      <button
+                        key={tab.key}
+                        onClick={() => fetchProFeature(tab.key as 'blueprint' | 'thumbnail' | 'seo')}
+                        disabled={loadingPro}
+                        style={{
+                          fontSize: 13, padding: '9px 16px', borderRadius: 9, cursor: 'pointer',
+                          border: `1px solid ${activeProTab === tab.key ? 'var(--accent3)' : 'var(--border)'}`,
+                          background: activeProTab === tab.key ? 'rgba(124,92,255,0.12)' : 'var(--surface-2)',
+                          color: activeProTab === tab.key ? 'var(--accent3)' : 'var(--text-muted)',
+                          opacity: loadingPro ? 0.7 : 1,
+                        }}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
 
-  {/* Loading */}
-  {loadingPro && (
-    <div style={{ padding: '24px', textAlign: 'center' }}>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-muted)' }}>
-        Generating {activeProTab}...
-      </p>
-    </div>
-  )}
+                  {loadingPro && (
+                    <div style={{ padding: '24px', textAlign: 'center' }}>
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-muted)' }}>
+                        Generating {activeProTab}...
+                      </p>
+                    </div>
+                  )}
 
-  {/* Blueprint result */}
-  {!loadingPro && blueprint && activeProTab === 'blueprint' && (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '16px' }}>
-        <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Hook</p>
-        <p style={{ fontSize: 14, fontStyle: 'italic', lineHeight: 1.6, color: 'var(--text)' }}>&quot;{blueprint.hook}&quot;</p>
-      </div>
+                  {!loadingPro && blueprint && activeProTab === 'blueprint' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '16px' }}>
+                        <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Hook</p>
+                        <p style={{ fontSize: 14, fontStyle: 'italic', lineHeight: 1.6, color: 'var(--text)' }}>&quot;{blueprint.hook}&quot;</p>
+                      </div>
 
-      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '16px' }}>
-        <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
-          Structure · {blueprint.recommendedLength} · {blueprint.toneStyle}
-        </p>
-        {blueprint.structure.map((s, i) => (
-          <div key={i} style={{ display: 'flex', gap: 12, padding: '10px 0', borderBottom: i < blueprint.structure.length - 1 ? '1px solid var(--border)' : 'none' }}>
-            <div style={{ width: 3, borderRadius: 4, background: 'var(--accent3)', flexShrink: 0, minHeight: 40 }} />
-            <div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
-                <p style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13 }}>{s.section}</p>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>{s.duration}</span>
-              </div>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>{s.description}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+                      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '16px' }}>
+                        <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
+                          Structure · {blueprint.recommendedLength} · {blueprint.toneStyle}
+                        </p>
+                        {blueprint.structure.map((s, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 12, padding: '10px 0', borderBottom: i < blueprint.structure.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                            <div style={{ width: 3, borderRadius: 4, background: 'var(--accent3)', flexShrink: 0, minHeight: 40 }} />
+                            <div>
+                              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                                <p style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13 }}>{s.section}</p>
+                                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>{s.duration}</span>
+                              </div>
+                              <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>{s.description}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
 
-      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '16px' }}>
-        <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>CTA</p>
-        <p style={{ fontSize: 13, lineHeight: 1.6 }}>{blueprint.cta}</p>
-      </div>
-    </div>
-  )}
+                      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '16px' }}>
+                        <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>CTA</p>
+                        <p style={{ fontSize: 13, lineHeight: 1.6 }}>{blueprint.cta}</p>
+                      </div>
+                    </div>
+                  )}
 
-  {/* Thumbnail result */}
-  {!loadingPro && thumbnailResult && activeProTab === 'thumbnail' && (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {thumbnailResult.concepts.map((concept, i) => (
-        <div key={i} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>Option {i + 1}</span>
-            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13 }}>{concept.style}</span>
-            <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--teal)' }}>{concept.emotion}</span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 13 }}>
-            <div>
-              <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>MAIN TEXT</p>
-              <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, color: 'var(--amber)' }}>{concept.mainText}</p>
-              {concept.subText && <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{concept.subText}</p>}
-            </div>
-            <div>
-              <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>COLORS</p>
-              <p style={{ fontSize: 13 }}>{concept.colorScheme}</p>
-            </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>VISUAL</p>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>{concept.visualDescription}</p>
-            </div>
-          </div>
-        </div>
-      ))}
-      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '14px' }}>
-        <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>General Tips</p>
-        {thumbnailResult.generalTips.map((tip, i) => (
-          <p key={i} style={{ fontSize: 13, color: 'var(--text-muted)', padding: '5px 0', borderBottom: i < thumbnailResult.generalTips.length - 1 ? '1px solid var(--border)' : 'none' }}>• {tip}</p>
-        ))}
-      </div>
-    </div>
-  )}
+                  {!loadingPro && thumbnailResult && activeProTab === 'thumbnail' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                      {thumbnailResult.concepts.map((concept, i) => (
+                        <div key={i} style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '16px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>Option {i + 1}</span>
+                            <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 13 }}>{concept.style}</span>
+                            <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--teal)' }}>{concept.emotion}</span>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 13 }}>
+                            <div>
+                              <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>MAIN TEXT</p>
+                              <p style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 16, color: 'var(--amber)' }}>{concept.mainText}</p>
+                              {concept.subText && <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{concept.subText}</p>}
+                            </div>
+                            <div>
+                              <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>COLORS</p>
+                              <p style={{ fontSize: 13 }}>{concept.colorScheme}</p>
+                            </div>
+                            <div style={{ gridColumn: '1 / -1' }}>
+                              <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>VISUAL</p>
+                              <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>{concept.visualDescription}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '14px' }}>
+                        <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>General Tips</p>
+                        {thumbnailResult.generalTips.map((tip, i) => (
+                          <p key={i} style={{ fontSize: 13, color: 'var(--text-muted)', padding: '5px 0', borderBottom: i < thumbnailResult.generalTips.length - 1 ? '1px solid var(--border)' : 'none' }}>• {tip}</p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
-  {/* SEO result */}
-  {!loadingPro && seoResult && activeProTab === 'seo' && (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '16px' }}>
-        <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
-          Tags ({seoResult.tags.length})
-        </p>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {seoResult.tags.map((tag, i) => (
-            <span
-              key={i}
-              onClick={() => { navigator.clipboard?.writeText(tag); setCopiedTag(i); setTimeout(() => setCopiedTag(null), 1200); }}
-              style={{ fontSize: 12, padding: '4px 10px', borderRadius: 20, background: copiedTag === i ? 'rgba(45,212,191,0.15)' : 'var(--surface)', border: `1px solid ${copiedTag === i ? 'var(--teal)' : 'var(--border)'}`, color: copiedTag === i ? 'var(--teal)' : 'var(--text-muted)', cursor: 'pointer' }}
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-      </div>
+                  {!loadingPro && seoResult && activeProTab === 'seo' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '16px' }}>
+                        <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
+                          Tags ({seoResult.tags.length})
+                        </p>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {seoResult.tags.map((tag, i) => (
+                            <span
+                              key={i}
+                              onClick={() => { navigator.clipboard?.writeText(tag); setCopiedTag(i); setTimeout(() => setCopiedTag(null), 1200); }}
+                              style={{ fontSize: 12, padding: '4px 10px', borderRadius: 20, background: copiedTag === i ? 'rgba(45,212,191,0.15)' : 'var(--surface)', border: `1px solid ${copiedTag === i ? 'var(--teal)' : 'var(--border)'}`, color: copiedTag === i ? 'var(--teal)' : 'var(--text-muted)', cursor: 'pointer' }}
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
 
-      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Description Template</p>
-          <button
-            onClick={() => copyText(seoResult.descriptionTemplate, setCopiedDesc)}
-            style={{ fontSize: 11, padding: '3px 9px', borderRadius: 6, background: 'var(--surface)', border: '1px solid var(--border)', color: copiedDesc ? 'var(--teal)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font-mono)' }}
-          >
-            {copiedDesc ? '✓ Copied' : 'Copy'}
-          </button>
-        </div>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{seoResult.descriptionTemplate}</p>
-      </div>
+                      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                          <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Description Template</p>
+                          <button
+                            onClick={() => copyText(seoResult.descriptionTemplate, setCopiedDesc)}
+                            style={{ fontSize: 11, padding: '3px 9px', borderRadius: 6, background: 'var(--surface)', border: '1px solid var(--border)', color: copiedDesc ? 'var(--teal)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font-mono)' }}
+                          >
+                            {copiedDesc ? '✓ Copied' : 'Copy'}
+                          </button>
+                        </div>
+                        <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{seoResult.descriptionTemplate}</p>
+                      </div>
 
-      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-          <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pinned Comment</p>
-          <button
-            onClick={() => copyText(seoResult.pinnedComment, setCopiedComment)}
-            style={{ fontSize: 11, padding: '3px 9px', borderRadius: 6, background: 'var(--surface)', border: '1px solid var(--border)', color: copiedComment ? 'var(--teal)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font-mono)' }}
-          >
-            {copiedComment ? '✓ Copied' : 'Copy'}
-          </button>
-        </div>
-        <p style={{ fontSize: 13, lineHeight: 1.6 }}>{seoResult.pinnedComment}</p>
-      </div>
-    </div>
-  )}
+                      <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 11, padding: '16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                          <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pinned Comment</p>
+                          <button
+                            onClick={() => copyText(seoResult.pinnedComment, setCopiedComment)}
+                            style={{ fontSize: 11, padding: '3px 9px', borderRadius: 6, background: 'var(--surface)', border: '1px solid var(--border)', color: copiedComment ? 'var(--teal)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: 'var(--font-mono)' }}
+                          >
+                            {copiedComment ? '✓ Copied' : 'Copy'}
+                          </button>
+                        </div>
+                        <p style={{ fontSize: 13, lineHeight: 1.6 }}>{seoResult.pinnedComment}</p>
+                      </div>
+                    </div>
+                  )}
 
-</div>
+                </div>
 
               </div>
             )}
@@ -787,6 +842,7 @@ async function handleShare() {
 
         </div>
       </div>
+
       {shareModalOpen && shareId && (
         <div
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 300, padding: 20 }}
