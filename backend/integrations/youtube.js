@@ -113,6 +113,3 @@ async function searchTopicVideos(topic, language = 'english') {
 }
 
 module.exports = { fetchTrendingVideos, searchTopicVideos };
-
-
-module.exports = { fetchTrendingVideos };
