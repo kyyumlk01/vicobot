@@ -103,6 +103,9 @@ export default function Dashboard() {
   const [sharing, setSharing] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [copiedShareLink, setCopiedShareLink] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+const [showSuggestions, setShowSuggestions] = useState(false);
+const [loadingEnhance, setLoadingEnhance] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -242,6 +245,60 @@ export default function Dashboard() {
       setSharing(false);
     }
   }
+
+  async function handleEnhanceAndSearch() {
+  if (!topic.trim() || topic.trim().length < 3) {
+    setError('Please enter a topic with at least 3 characters');
+    return;
+  }
+
+  setLoadingEnhance(true);
+  setSuggestions([]);
+  setShowSuggestions(false);
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const res = await fetch('http://localhost:5000/api/enhance', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ topic: topic.trim(), category }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.needsImprovement && data.suggestions?.length > 0) {
+      setSuggestions(data.suggestions);
+      setShowSuggestions(true);
+    } else {
+      handleSearch();
+    }
+  } catch {
+    handleSearch();
+  } finally {
+    setLoadingEnhance(false);
+  }
+}
+
+function handleUseSuggestion(suggestion: string) {
+  setTopic(suggestion);
+  setSuggestions([]);
+  setShowSuggestions(false);
+  setTimeout(() => {
+    setVariationCount(0);
+    runSearch(false, 0);
+  }, 100);
+}
+
+function handleUseOriginal() {
+  setSuggestions([]);
+  setShowSuggestions(false);
+  handleSearch();
+}
 
   async function runSearch(bypassCache = false, variation = 0) {
     if (!topic.trim() || topic.trim().length < 3) {
@@ -489,14 +546,44 @@ export default function Dashboard() {
                 </select>
                 <button
                   className="btn-grad"
-                  onClick={handleSearch}
-                  disabled={searching}
+                  onClick={handleEnhanceAndSearch}
+                  disabled={searching || loadingEnhance}
                   style={{ opacity: searching ? 0.7 : 1, whiteSpace: 'nowrap' }}
                 >
-                  {searching ? 'Analyzing...' : '✨ Analyze'}
+                  {searching ? 'Analyzing...' : loadingEnhance ? 'Checking...' : '✨ Analyze'}
                 </button>
               </div>
               {error && <p style={{ marginTop: 12, fontSize: 13, color: '#FF4F8B' }}>{error}</p>}
+              {showSuggestions && suggestions.length > 0 && (
+  <div style={{ marginTop: 14, padding: '16px', background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 10 }}>
+    <p style={{ fontSize: 12, color: 'var(--teal)', marginBottom: 10, fontFamily: 'var(--font-mono)' }}>
+      💡 Did you mean one of these?
+    </p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+      {suggestions.map((s, i) => (
+        <button
+          key={i}
+          onClick={() => handleUseSuggestion(s)}
+          style={{
+            textAlign: 'left', padding: '10px 13px', borderRadius: 8, cursor: 'pointer',
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            color: 'var(--text)', fontSize: 13,
+          }}
+          onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--amber)')}
+          onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+        >
+          ✦ {s}
+        </button>
+      ))}
+    </div>
+    <button
+      onClick={handleUseOriginal}
+      style={{ fontSize: 12, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'var(--font-mono)' }}
+    >
+      Use original: &quot;{topic}&quot; →
+    </button>
+  </div>
+)}
             </div>
 
             {/* Loading */}

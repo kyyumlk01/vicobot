@@ -187,9 +187,45 @@ Return exactly this JSON structure:
   return JSON.parse(cleaned);
 }
 
+async function enhanceTopicWithGroq(topic, category) {
+  const prompt = `You are a YouTube SEO expert for Indian creators.
+
+A creator typed this topic: "${topic}"
+Category: ${category}
+
+Analyze if this topic is vague, poorly worded, or too broad.
+Suggest 3 improved, specific, search-friendly YouTube topic versions.
+
+Return ONLY a valid JSON object, no markdown, no explanation:
+{
+  "needsImprovement": <true if original is vague/incorrect/too broad, false if already specific and good>,
+  "suggestions": [
+    "<improved topic 1 - specific and searchable>",
+    "<improved topic 2 - different angle>",
+    "<improved topic 3 - another variation>"
+  ]
+}`;
+
+  const response = await groq.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
+    messages: [{ role: 'user', content: prompt }],
+    temperature: 0.7,
+    max_tokens: 200,
+  });
+
+  const raw = response.choices[0]?.message?.content || '';
+  const cleaned = raw.replace(/```json|```/g, '').trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    return { needsImprovement: false, suggestions: [] };
+  }
+}
+
 module.exports = {
   analyzeTopicWithGroq,
   generateBlueprintWithGroq,
   generateThumbnailWithGroq,
   generateSeoTagsWithGroq,
+  enhanceTopicWithGroq,
 };
