@@ -14,7 +14,9 @@ async function analyzeTopicWithGroq(topic, category, language, variation = 0, re
     : 'Respond in English.';
 
   const angleHint = ANGLES[variation % ANGLES.length];
-
+  const categoryContext = category === 'Other'
+  ? 'Category: General (creator did not specify a niche)'
+  : `Category: ${category}`;
   const realDataContext = realData ? `
 Real YouTube data for this topic:
 - Average views of top videos: ${Math.round(realData.avgViews).toLocaleString()}
@@ -31,7 +33,7 @@ Use this real data to inform your analysis. Do NOT generate fake view numbers.
 
 Analyze this YouTube topic using the real data provided below.
 Topic: "${topic}"
-Category: ${category}
+${categoryContext}
 Angle: ${angleHint}
 ${langInstruction}
 

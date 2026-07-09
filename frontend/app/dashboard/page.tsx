@@ -5,8 +5,18 @@ import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-const CATEGORIES = ['Tech', 'Fitness', 'Gaming', 'Finance', 'Travel', 'Food', 'Education', 'Entertainment'];
-const TRENDING_CATS = ['All', 'Tech', 'Gaming', 'Entertainment', 'Education'];
+const CATEGORIES = [
+  'Tech', 'Gaming', 'Finance', 'Fitness', 'Travel', 'Food',
+  'Education', 'Entertainment', 'Comedy', 'Music', 'Sports',
+  'Cricket', 'Motivation', 'Fashion & Beauty', 'Cooking',
+  'Vlogs', 'News', 'Science', 'Business', 'Movie Reviews',
+  'Health', 'Astrology', 'Other'
+];
+
+const TRENDING_CATS = [
+  'All', 'Tech', 'Gaming', 'Entertainment', 'Education',
+  'Music', 'Sports', 'Comedy', 'News', 'Science'
+];
 
 interface SearchResult {
   demandScore: number;
