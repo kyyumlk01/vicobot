@@ -439,6 +439,9 @@ function handleUseOriginal() {
             <Link href="/saved" style={{ fontSize: 13, color: 'var(--text-muted)' }}>
               📌 Saved {savedTopics.length > 0 && `(${savedTopics.length})`}
             </Link>
+            <Link href="/upgrade" style={{ fontSize: 13, color: 'var(--amber)' }}>
+  ⚡ Upgrade ₹49
+</Link>
             <button
               className="btn-ghost"
               style={{ fontSize: 13 }}
