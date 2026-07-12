@@ -116,6 +116,7 @@ export default function Dashboard() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
 const [showSuggestions, setShowSuggestions] = useState(false);
 const [loadingEnhance, setLoadingEnhance] = useState(false);
+const [isPro, setIsPro] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -141,6 +142,18 @@ const [loadingEnhance, setLoadingEnhance] = useState(false);
       if (profile) setCreatorLevel(profile.creator_level);
 
       await fetchSavedTopics();
+
+const { data: { session } } = await supabase.auth.getSession();
+if (session) {
+  const subRes = await fetch('http://localhost:5000/api/subscription', {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+  const subData = await subRes.json();
+  if (subRes.ok && subData.status === 'active') setIsPro(true);
+}
+
+await fetchTrending('All');
+setLoading(false);
       await fetchTrending('All');
       setLoading(false);
     }
@@ -749,33 +762,60 @@ function handleUseOriginal() {
                 {/* Pro Tools */}
                 <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                    <span style={{ background: 'var(--grad)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13 }}>
-                      ✦ Pro Tools
-                    </span>
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>free during beta</span>
-                  </div>
+            
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+  <span style={{ background: 'linear-gradient(135deg,#FF8A4C,#FF4F8B,#7C5CFF)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 13 }}>
+    ✦ Pro Tools
+  </span>
+  {isPro ? (
+    <span style={{ fontSize: 11, color: 'var(--teal)', fontFamily: 'var(--font-mono)' }}>active</span>
+  ) : (
+    <Link href="/upgrade" style={{ fontSize: 11, color: 'var(--amber)', fontFamily: 'var(--font-mono)', background: 'rgba(255,182,72,0.14)', padding: '2px 8px', borderRadius: 20, textDecoration: 'none' }}>
+      ⚡ Upgrade to unlock
+    </Link>
+  )}
+</div>
 
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
-                    {[
-                      { key: 'blueprint', label: '📝 Video Blueprint' },
-                      { key: 'thumbnail', label: '🖼️ Thumbnail Ideas' },
-                      { key: 'seo', label: '🏷️ SEO Tags' },
-                    ].map(tab => (
-                      <button
-                        key={tab.key}
-                        onClick={() => fetchProFeature(tab.key as 'blueprint' | 'thumbnail' | 'seo')}
-                        disabled={loadingPro}
-                        style={{
-                          fontSize: 13, padding: '9px 16px', borderRadius: 9, cursor: 'pointer',
-                          border: `1px solid ${activeProTab === tab.key ? 'var(--accent3)' : 'var(--border)'}`,
-                          background: activeProTab === tab.key ? 'rgba(124,92,255,0.12)' : 'var(--surface-2)',
-                          color: activeProTab === tab.key ? 'var(--accent3)' : 'var(--text-muted)',
-                          opacity: loadingPro ? 0.7 : 1,
-                        }}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
+  {([
+    { key: 'blueprint', label: '📝 Video Blueprint' },
+    { key: 'thumbnail', label: '🖼️ Thumbnail Ideas' },
+    { key: 'seo', label: '🏷️ SEO Tags' },
+  ] as const).map(tab => (
+    isPro ? (
+      <button
+        key={tab.key}
+        onClick={() => fetchProFeature(tab.key)}
+        disabled={loadingPro}
+        style={{
+          fontSize: 13, padding: '9px 16px', borderRadius: 9, cursor: 'pointer',
+          border: `1px solid ${activeProTab === tab.key ? '#7C5CFF' : 'var(--border)'}`,
+          background: activeProTab === tab.key ? 'rgba(124,92,255,0.12)' : 'var(--surface-2)',
+          color: activeProTab === tab.key ? '#7C5CFF' : 'var(--text-muted)',
+          opacity: loadingPro ? 0.7 : 1,
+        }}
+      >
+        {tab.label}
+      </button>
+    ) : (
+      <Link
+        key={tab.key}
+        href="/upgrade"
+        style={{
+          fontSize: 13, padding: '9px 16px', borderRadius: 9,
+          border: '1px solid var(--border)',
+          background: 'var(--surface-2)',
+          color: 'var(--text-muted)',
+          display: 'flex', alignItems: 'center', gap: 6,
+          textDecoration: 'none',
+        }}
+      >
+        {tab.label}
+        <span style={{ fontSize: 10, color: 'var(--amber)', background: 'rgba(255,182,72,0.14)', padding: '1px 6px', borderRadius: 10, fontFamily: 'var(--font-mono)' }}>PRO</span>
+      </Link>
+    )
+  ))}
+</div>
                   </div>
 
                   {loadingPro && (

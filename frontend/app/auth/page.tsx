@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function AuthPage() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
@@ -16,6 +17,18 @@ export default function AuthPage() {
   async function handleSubmit() {
     setError('');
     setLoading(true);
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+if (!emailRegex.test(email)) {
+  setError('Please enter a valid email address');
+  setLoading(false);
+  return;
+}
+
+if (password.length < 6) {
+  setError('Password must be at least 6 characters');
+  setLoading(false);
+  return;
+}
 
     try {
       if (mode === 'signup') {
@@ -92,10 +105,10 @@ export default function AuthPage() {
         </button>
 
         {mode === 'login' && (
-          <p className="foot-note" style={{ marginTop: '14px' }}>
-            <a href="/auth/reset" style={{ color: 'var(--teal)' }}>Forgot password?</a>
-          </p>
-        )}
+  <p className="foot-note" style={{ marginTop: 14 }}>
+    <Link href="/auth/reset" style={{ color: 'var(--teal)' }}>Forgot password?</Link>
+  </p>
+)}
       </div>
     </div>
   );
