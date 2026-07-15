@@ -1,4 +1,5 @@
 const supabase = require('../integrations/supabase');
+const { sendWelcomeEmail } = require('../services/emailService');
 
 async function handleUpdateLevel(req, res) {
   const { creatorLevel } = req.body;
@@ -15,6 +16,17 @@ async function handleUpdateLevel(req, res) {
       .eq('id', req.user.id);
 
     if (error) throw error;
+
+    try {
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('email')
+    .eq('id', req.user.id)
+    .single();
+  if (profile?.email) await sendWelcomeEmail(profile.email);
+} catch {
+  // Welcome email fail hone pe koi problem nahi, silently ignore
+}
 
     return res.status(200).json({ updated: true });
   } catch (err) {
