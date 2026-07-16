@@ -11,34 +11,35 @@ export default function AuthPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [confirmEmail, setConfirmEmail] = useState('');
   const router = useRouter();
   const supabase = createClient();
 
   async function handleSubmit() {
     setError('');
-    setLoading(true);
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-if (!emailRegex.test(email)) {
-  setError('Please enter a valid email address');
-  setLoading(false);
-  return;
-}
 
-if (password.length < 6) {
-  setError('Password must be at least 6 characters');
-  setLoading(false);
-  return;
-}
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    setLoading(true);
 
     try {
       if (mode === 'signup') {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        router.push('/onboarding');
+        setConfirmEmail(email);
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        router.push('/onboarding');
+        router.push('/dashboard');
       }
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message);
@@ -46,6 +47,32 @@ if (password.length < 6) {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (confirmEmail) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+        <div className="start-modal" style={{ width: 380, position: 'relative', textAlign: 'center' }}>
+          <img src="/logo-amber-for-dark-theme.png" alt="Vicobot" style={{ height: 28, marginBottom: 20 }} />
+          <div style={{ fontSize: 40, marginBottom: 16 }}>📧</div>
+          <h3 style={{ marginBottom: 10 }}>Check your email</h3>
+          <p className="sub2">
+            We sent a confirmation link to<br />
+            <b style={{ color: 'var(--text)' }}>{confirmEmail}</b>
+          </p>
+          <p className="sub2" style={{ marginTop: 10 }}>
+            Click the link in the email to activate your account, then come back to log in.
+          </p>
+          <button
+            className="btn-ghost full-w"
+            onClick={() => { setConfirmEmail(''); setMode('login'); }}
+            style={{ marginTop: 20 }}
+          >
+            Back to login
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -105,10 +132,10 @@ if (password.length < 6) {
         </button>
 
         {mode === 'login' && (
-  <p className="foot-note" style={{ marginTop: 14 }}>
-    <Link href="/auth/reset" style={{ color: 'var(--teal)' }}>Forgot password?</Link>
-  </p>
-)}
+          <p className="foot-note" style={{ marginTop: '14px' }}>
+            <Link href="/auth/reset" style={{ color: 'var(--teal)' }}>Forgot password?</Link>
+          </p>
+        )}
       </div>
     </div>
   );
