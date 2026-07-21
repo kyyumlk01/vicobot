@@ -167,3 +167,7 @@ footer p{font-size:13px; color:var(--text-muted);}
   .thumb{flex:0 0 auto; width:100%;}
   .feature-panel{grid-template-columns:1fr;}
 }
+
+@media (max-width: 600px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
