@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { API_URL } from '@/lib/api';
 
@@ -16,7 +16,8 @@ interface SharedResult {
   created_at: string;
 }
 
-export default function SharePage({ params }: { params: { id: string } }) {
+export default function SharePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const [result, setResult] = useState<SharedResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -24,7 +25,7 @@ export default function SharePage({ params }: { params: { id: string } }) {
   useEffect(() => {
     async function load() {
       try {
-        const response = await fetch(`${API_URL}/api/share/${params.id}`);
+        const response = await fetch(`${API_URL}/api/share/${id}`);
         if (!response.ok) {
           setNotFound(true);
           return;
@@ -38,7 +39,7 @@ export default function SharePage({ params }: { params: { id: string } }) {
       }
     }
     load();
-  }, [params.id]);
+  }, [id]);
 
   function scoreColor(score: number) {
     if (score >= 80) return 'var(--amber)';
