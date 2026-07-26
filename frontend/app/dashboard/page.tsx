@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { API_URL } from '@/lib/api';
 
 const CATEGORIES = [
   'Tech', 'Gaming', 'Finance', 'Fitness', 'Travel', 'Food',
@@ -145,7 +146,7 @@ const [isPro, setIsPro] = useState(false);
 
 const { data: { session } } = await supabase.auth.getSession();
 if (session) {
-  const subRes = await fetch('http://localhost:5000/api/subscription', {
+  const subRes = await fetch('${API_URL}/api/subscription', {
     headers: { Authorization: `Bearer ${session.access_token}` },
   });
   const subData = await subRes.json();
@@ -164,7 +165,7 @@ setLoading(false);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const response = await fetch('http://localhost:5000/api/saved', {
+      const response = await fetch('${API_URL}/api/saved', {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       });
       const data = await response.json();
@@ -179,7 +180,7 @@ setLoading(false);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const response = await fetch(`http://localhost:5000/api/trending?category=${cat}`, {
+      const response = await fetch(`${API_URL}/api/trending?category=${cat}`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       });
       const data = await response.json();
@@ -203,7 +204,7 @@ setLoading(false);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const response = await fetch(`http://localhost:5000/api/pro/${type}`, {
+      const response = await fetch(`${API_URL}/api/pro/${type}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -240,7 +241,7 @@ setLoading(false);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const response = await fetch('http://localhost:5000/api/share', {
+      const response = await fetch('${API_URL}/api/share', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -283,7 +284,7 @@ setLoading(false);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    const res = await fetch('http://localhost:5000/api/enhance', {
+    const res = await fetch('${API_URL}/api/enhance', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -337,7 +338,7 @@ function handleUseOriginal() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/auth'); return; }
 
-      const response = await fetch('http://localhost:5000/api/search', {
+      const response = await fetch('${API_URL}/api/search', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -376,7 +377,7 @@ function handleUseOriginal() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const response = await fetch('http://localhost:5000/api/saved', {
+      const response = await fetch('${API_URL}/api/saved', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -402,7 +403,7 @@ function handleUseOriginal() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      await fetch(`http://localhost:5000/api/saved/${id}`, {
+      await fetch(`${API_URL}/api/saved/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       });

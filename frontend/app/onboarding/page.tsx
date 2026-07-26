@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import { API_URL } from '@/lib/api';
 
 const levels = [
   {
@@ -45,7 +46,7 @@ export default function OnboardingPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const response = await fetch('http://localhost:5000/api/profile/level', {
+      const response = await fetch('${API_URL}/api/profile/level', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

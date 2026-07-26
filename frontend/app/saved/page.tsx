@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { API_URL } from '@/lib/api';
 
 interface SavedTopic {
   id: string;
@@ -37,7 +38,7 @@ export default function SavedPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const response = await fetch('http://localhost:5000/api/saved', {
+      const response = await fetch('${API_URL}/api/saved', {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       });
       const data = await response.json();
@@ -52,7 +53,7 @@ export default function SavedPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      await fetch(`http://localhost:5000/api/saved/${id}`, {
+      await fetch(`${API_URL}/api/saved/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       });

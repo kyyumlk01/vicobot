@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { API_URL } from '@/lib/api';
 
 interface SharedResult {
   id: string;
@@ -23,7 +24,7 @@ export default function SharePage({ params }: { params: { id: string } }) {
   useEffect(() => {
     async function load() {
       try {
-        const response = await fetch(`http://localhost:5000/api/share/${params.id}`);
+        const response = await fetch(`${API_URL}/api/share/${params.id}`);
         if (!response.ok) {
           setNotFound(true);
           return;

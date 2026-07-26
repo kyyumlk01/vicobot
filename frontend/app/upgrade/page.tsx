@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import { API_URL } from '@/lib/api';
 import Link from 'next/link';
 
 declare global {
@@ -31,7 +32,7 @@ export default function UpgradePage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const res = await fetch('http://localhost:5000/api/subscription', {
+      const res = await fetch('${API_URL}/api/subscription', {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       const data = await res.json();
@@ -53,7 +54,7 @@ export default function UpgradePage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/auth'); return; }
 
-      const res = await fetch('http://localhost:5000/api/subscription/create', {
+      const res = await fetch('${API_URL}/api/subscription/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -105,7 +106,7 @@ export default function UpgradePage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const res = await fetch('http://localhost:5000/api/subscription/cancel', {
+      const res = await fetch('${API_URL}/api/subscription/cancel', {
         method: 'POST',
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
