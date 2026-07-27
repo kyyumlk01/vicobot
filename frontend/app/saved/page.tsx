@@ -38,7 +38,7 @@ export default function SavedPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const response = await fetch('${API_URL}/api/saved', {
+      const response = await fetch(`${API_URL}/api/saved`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       });
       const data = await response.json();
