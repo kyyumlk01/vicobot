@@ -241,7 +241,7 @@ setLoading(false);
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const response = await fetch('${API_URL}/api/share', {
+      const response = await fetch(`${API_URL}/api/share`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

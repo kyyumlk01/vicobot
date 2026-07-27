@@ -32,7 +32,7 @@ export default function UpgradePage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const res = await fetch('${API_URL}/api/subscription', {
+      const res = await fetch(`${API_URL}/api/subscription`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
       const data = await res.json();
