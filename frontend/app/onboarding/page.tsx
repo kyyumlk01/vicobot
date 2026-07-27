@@ -46,7 +46,7 @@ export default function OnboardingPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const response = await fetch('${API_URL}/api/profile/level', {
+      const response = await fetch(`${API_URL}/api/profile/level`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
