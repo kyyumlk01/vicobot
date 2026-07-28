@@ -54,7 +54,7 @@ export default function UpgradePage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/auth'); return; }
 
-      const res = await fetch('${API_URL}/api/subscription/create', {
+      const res = await fetch(`${API_URL}/api/subscription/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -106,7 +106,7 @@ export default function UpgradePage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const res = await fetch('${API_URL}/api/subscription/cancel', {
+      const res = await fetch(`${API_URL}/api/subscription/cancel`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${session.access_token}` },
       });

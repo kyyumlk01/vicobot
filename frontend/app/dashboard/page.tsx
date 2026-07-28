@@ -146,7 +146,7 @@ const [isPro, setIsPro] = useState(false);
 
 const { data: { session } } = await supabase.auth.getSession();
 if (session) {
-  const subRes = await fetch('${API_URL}/api/subscription', {
+  const subRes = await fetch(`${API_URL}/api/subscription`, {
     headers: { Authorization: `Bearer ${session.access_token}` },
   });
   const subData = await subRes.json();
@@ -165,7 +165,7 @@ setLoading(false);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const response = await fetch('${API_URL}/api/saved', {
+      const response = await fetch(`${API_URL}/api/saved`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       });
       const data = await response.json();
@@ -284,7 +284,7 @@ setLoading(false);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
-    const res = await fetch('${API_URL}/api/enhance', {
+    const res = await fetch(`${API_URL}/api/enhance`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -338,7 +338,7 @@ function handleUseOriginal() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.push('/auth'); return; }
 
-      const response = await fetch('${API_URL}/api/search', {
+      const response = await fetch(`${API_URL}/api/search`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -377,7 +377,7 @@ function handleUseOriginal() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      const response = await fetch('${API_URL}/api/saved', {
+      const response = await fetch(`${API_URL}/api/saved`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
