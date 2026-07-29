@@ -8,45 +8,61 @@ const ANGLES = [
   'Focus on the most trending and viral potential angle for this topic.',
 ];
 
-async function analyzeTopicWithGroq(topic, category, language, variation = 0, realData = null) {
+async function analyzeTopicWithGroq(topic, category, language, variation = 0, realData = null, transcripts = [], news = [], trend = null) {
   const langInstruction = language === 'hindi'
     ? 'Respond in Hindi/Hinglish mixed language.'
     : 'Respond in English.';
 
   const angleHint = ANGLES[variation % ANGLES.length];
-  const categoryContext = category === 'Other'
-  ? 'Category: General (creator did not specify a niche)'
-  : `Category: ${category}`;
-  const realDataContext = realData ? `
-Real YouTube data for this topic:
-- Average views of top videos: ${Math.round(realData.avgViews).toLocaleString()}
-- Median views: ${Math.round(realData.medianViews).toLocaleString()}
-- Highest performing video: ${realData.maxViews.toLocaleString()} views
-- Videos uploaded in last 90 days: ${realData.recentVideos}
-- Competition level (calculated): ${realData.competitionLevel}
-- Top videos: ${realData.topVideos.map(v => `"${v.title}" (${v.views.toLocaleString()} views)`).join(', ')}
 
-Use this real data to inform your analysis. Do NOT generate fake view numbers.
-` : 'No real YouTube data available — use general knowledge for Indian creators.';
+  const sanitizedTitles = realData
+    ? realData.topVideos.map(v => v.title.replace(/['"\\]/g, ' ').trim()).join(' | ')
+    : '';
+
+  const transcriptContext = transcripts.length > 0
+    ? `\nTranscript samples from top videos:\n${transcripts.map(t => `- ${t.text.substring(0, 300)}`).join('\n')}`
+    : '';
+
+  const newsContext = news.length > 0
+    ? `\nRecent news about this topic:\n${news.map(n => `- ${n.title}: ${n.description?.substring(0, 100) || ''}`).join('\n')}`
+    : '';
+
+  const trendContext = trend
+    ? `\nGoogle Trends: Topic is currently ${trend.trend} in India (trend score: ${trend.score}/100)`
+    : '';
+
+  const realDataContext = realData ? `
+Real YouTube data:
+- Average views: ${Math.round(realData.avgViews).toLocaleString()}
+- Median views: ${Math.round(realData.medianViews).toLocaleString()}
+- Max views: ${realData.maxViews.toLocaleString()}
+- Recent uploads (90 days): ${realData.recentVideos}
+- Competition: ${realData.competitionLevel}
+- Top videos: ${sanitizedTitles}
+${transcriptContext}
+${newsContext}
+${trendContext}
+
+Use this real data. Do NOT generate fake numbers.
+` : `No YouTube data available. Use general knowledge for Indian creators.${newsContext}${trendContext}`;
 
   const prompt = `You are an expert YouTube content strategist for Indian creators.
 
-Analyze this YouTube topic using the real data provided below.
 Topic: "${topic}"
-${categoryContext}
+Category: ${category}
 Angle: ${angleHint}
 ${langInstruction}
 
 ${realDataContext}
 
-Return ONLY a valid JSON object, no markdown, no explanation:
+Return ONLY valid JSON, no markdown:
 {
-  "uploadDay": "<best day to upload based on category>",
-  "uploadTime": "<best time like 6-8 PM based on category>",
-  "analysis": "<2-3 sentences explaining why this topic has potential, referencing the real view data>",
+  "uploadDay": "<best day>",
+  "uploadTime": "<best time like 6-8 PM>",
+  "analysis": "<2-3 sentences using real data and news context>",
   "contentGaps": ["<gap 1>", "<gap 2>", "<gap 3>"],
   "titleIdeas": ["<title 1>", "<title 2>", "<title 3>", "<title 4>", "<title 5>"],
-  "verdict": "<1 sentence final recommendation based on real data>"
+  "verdict": "<1 sentence recommendation based on trend and data>"
 }`;
 
   const response = await groq.chat.completions.create({
@@ -58,7 +74,13 @@ Return ONLY a valid JSON object, no markdown, no explanation:
 
   const raw = response.choices[0]?.message?.content || '';
   const cleaned = raw.replace(/```json|```/g, '').trim();
-  return JSON.parse(cleaned);
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+    throw new Error('Failed to parse Groq response');
+  }
 }
 
 async function generateBlueprintWithGroq(topic, category, language) {

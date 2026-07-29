@@ -2,6 +2,9 @@ const crypto = require('crypto');
 const supabase = require('../integrations/supabase');
 const { analyzeTopicWithGroq } = require('../integrations/groq');
 const { searchTopicVideos } = require('../integrations/youtube');
+const { getTopicTrend } = require('../integrations/trends');
+const { getVideoTranscripts } = require('../integrations/transcripts');
+const { getTopicNews } = require('../integrations/news');
 
 function generateHash(topic, category, language) {
   return crypto
@@ -12,7 +15,6 @@ function generateHash(topic, category, language) {
 
 async function checkDailyLimit(userId) {
   const today = new Date().toISOString().split('T')[0];
-
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('daily_searches, last_search_date')
@@ -20,16 +22,12 @@ async function checkDailyLimit(userId) {
     .single();
 
   if (error) throw new Error('Failed to fetch user profile');
-
-  if (profile.last_search_date === today && profile.daily_searches >= 3) {
-    return false;
-  }
+  if (profile.last_search_date === today && profile.daily_searches >= 3) return false;
   return true;
 }
 
 async function incrementSearchCount(userId) {
   const today = new Date().toISOString().split('T')[0];
-
   const { data: profile } = await supabase
     .from('profiles')
     .select('daily_searches, last_search_date')
@@ -37,7 +35,6 @@ async function incrementSearchCount(userId) {
     .single();
 
   const isNewDay = profile.last_search_date !== today;
-
   await supabase
     .from('profiles')
     .update({
@@ -58,34 +55,54 @@ async function searchTopic(userId, topic, category, language, bypassCache = fals
       .gt('expires_at', new Date().toISOString())
       .single();
 
-    if (cached) {
-      return { result: cached.result, fromCache: true };
+    if (cached) return { result: cached.result, fromCache: true };
+  }
+
+  // Sab data sources parallel mein fetch karo
+  const [realData, trendData, newsData] = await Promise.allSettled([
+    searchTopicVideos(topic, language),
+    getTopicTrend(topic),
+    getTopicNews(topic),
+  ]);
+
+  const youtubeData = realData.status === 'fulfilled' ? realData.value : null;
+  const trend = trendData.status === 'fulfilled' ? trendData.value : { trend: 'stable', score: 50 };
+  const news = newsData.status === 'fulfilled' ? newsData.value : [];
+
+  // Transcripts fetch karo agar YouTube data hai
+  let transcripts = [];
+  if (youtubeData?.topVideos?.length) {
+    const videoIds = youtubeData.topVideos.map(v => v.videoId);
+    try {
+      transcripts = await getVideoTranscripts(videoIds);
+    } catch {
+      // silent fail
     }
   }
 
-  let realData = null;
-  try {
-    realData = await searchTopicVideos(topic, language);
-  } catch (err) {
-    console.error('[searchService] YouTube API error:', err.message);
-  }
-
-  const groqAnalysis = await analyzeTopicWithGroq(topic, category, language, variation, realData);
+  // Groq ko real data + transcripts + news dono do
+  const groqAnalysis = await analyzeTopicWithGroq(
+    topic, category, language, variation,
+    youtubeData, transcripts, news, trend
+  );
 
   const result = {
-    demandScore: realData?.demandScore ?? groqAnalysis.demandScore ?? 50,
-    expectedViewsMin: realData?.expectedViewsMin ?? 5000,
-    expectedViewsMax: realData?.expectedViewsMax ?? 50000,
-    competitionLevel: realData?.competitionLevel ?? 'Medium',
+    demandScore: youtubeData?.demandScore ?? 50,
+    expectedViewsMin: youtubeData?.expectedViewsMin ?? 5000,
+    expectedViewsMax: youtubeData?.expectedViewsMax ?? 50000,
+    competitionLevel: youtubeData?.competitionLevel ?? 'Medium',
     uploadDay: groqAnalysis.uploadDay,
     uploadTime: groqAnalysis.uploadTime,
     analysis: groqAnalysis.analysis,
     contentGaps: groqAnalysis.contentGaps,
     titleIdeas: groqAnalysis.titleIdeas,
     verdict: groqAnalysis.verdict,
-    topVideos: realData?.topVideos ?? [],
-    dataSource: realData ? 'youtube' : 'ai',
-    medianViews: realData?.medianViews ?? null,
+    topVideos: youtubeData?.topVideos ?? [],
+    dataSource: youtubeData ? 'youtube' : 'ai',
+    medianViews: youtubeData?.medianViews ?? null,
+    trend: trend.trend,
+    trendScore: trend.score,
+    newsContext: news.slice(0, 2),
   };
 
   if (!bypassCache) {

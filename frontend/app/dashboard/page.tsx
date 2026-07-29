@@ -39,6 +39,13 @@ interface SearchResult {
   }>;
   dataSource: string;
   medianViews: number | null;
+  trend?: string;
+  trendScore?: number;
+  newsContext?: Array<{
+    title: string;
+    description: string;
+    source: string;
+  }>;
 }
 
 interface SavedTopic {
@@ -645,6 +652,38 @@ function handleUseOriginal() {
                     </div>
                   ))}
                 </div>
+
+                {/* Trend indicator */}
+{result.trend && (
+  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+    <span style={{
+      fontFamily: 'var(--font-mono)', fontSize: 11, padding: '3px 10px',
+      borderRadius: 20, border: '1px solid var(--border)',
+      color: result.trend === 'rising' ? 'var(--teal)' : result.trend === 'falling' ? '#FF4F8B' : 'var(--text-muted)',
+      background: result.trend === 'rising' ? 'rgba(45,212,191,0.1)' : result.trend === 'falling' ? 'rgba(255,79,139,0.1)' : 'var(--surface-2)',
+    }}>
+      {result.trend === 'rising' ? '📈 Rising on Google Trends' : result.trend === 'falling' ? '📉 Declining on Google Trends' : '➡️ Stable on Google Trends'}
+    </span>
+    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)' }}>
+      Trend score: {result.trendScore}/100
+    </span>
+  </div>
+)}
+
+{/* News context */}
+{result.newsContext && result.newsContext.length > 0 && (
+  <div style={{ marginBottom: 16 }}>
+    <p style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+      📰 In the news right now
+    </p>
+    {result.newsContext.map((n: { title: string; description: string; source: string }, i: number) => (
+      <div key={i} style={{ fontSize: 13, padding: '8px 0', borderBottom: '1px solid var(--border)', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+        <span style={{ color: 'var(--text)', fontWeight: 500 }}>{n.title}</span>
+        {n.source && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, marginLeft: 8, color: 'var(--text-muted)' }}>{n.source}</span>}
+      </div>
+    ))}
+  </div>
+)}
 
                 {/* Data source badge */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
