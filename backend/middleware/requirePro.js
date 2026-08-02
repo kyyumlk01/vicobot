@@ -1,14 +1,9 @@
-const supabase = require('../integrations/supabase');
+const { isProUser } = require('../services/subscriptionService');
 
 async function requirePro(req, res, next) {
   try {
-    const { data } = await supabase
-      .from('subscriptions')
-      .select('status')
-      .eq('user_id', req.user.id)
-      .single();
-
-    if (data?.status === 'active') {
+    const pro = await isProUser(req.user.id);
+    if (pro) {
       next();
     } else {
       return res.status(403).json({
@@ -16,7 +11,8 @@ async function requirePro(req, res, next) {
         code: 'PRO_REQUIRED',
       });
     }
-  } catch {
+  } catch (err) {
+    console.error('[requirePro] error:', err.message);
     return res.status(403).json({
       error: 'Pro subscription required',
       code: 'PRO_REQUIRED',
