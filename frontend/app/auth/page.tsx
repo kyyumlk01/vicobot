@@ -32,10 +32,17 @@ export default function AuthPage() {
     setLoading(true);
 
     try {
-      if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        setConfirmEmail(email);
+     if (mode === 'signup') {
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  if (error) throw error;
+
+  if (data?.user && data.user.identities?.length === 0) {
+    setError('An account with this email already exists. Please log in instead.');
+    setLoading(false);
+    return;
+  }
+
+  setConfirmEmail(email);
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
