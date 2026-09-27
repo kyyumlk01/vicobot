@@ -51,16 +51,18 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ error: err.message || 'Something went wrong' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-// Har Sunday raat 8 PM IST (2:30 PM UTC) pe weekly digest bhejo
-cron.schedule('30 14 * * 0', async () => {
-  console.log('[cron] Running weekly digest...');
-  try {
-    await sendWeeklyDigest();
-  } catch (err) {
-    console.error('[cron] Digest failed:', err.message);
-  }
-}, { timezone: 'Asia/Kolkata' });
+// Weekly digest scheduling is intentionally disabled here so the Render Free Web Service
+// does not depend on a persistent in-process cron worker. The digest can be triggered later
+// by an external scheduler or by calling /api/email/digest/trigger when needed.
+// cron.schedule('30 14 * * 0', async () => {
+//   console.log('[cron] Running weekly digest...');
+//   try {
+//     await sendWeeklyDigest();
+//   } catch (err) {
+//     console.error('[cron] Digest failed:', err.message);
+//   }
+// }, { timezone: 'Asia/Kolkata' });
