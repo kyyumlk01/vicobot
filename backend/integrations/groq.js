@@ -66,7 +66,7 @@ Return ONLY valid JSON, no markdown:
 }`;
 
   const response = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
+    model: 'openai/gpt-oss-120b',
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.7 + variation * 0.1,
     max_tokens: 1000,
@@ -112,7 +112,7 @@ Return exactly this JSON structure:
 }`;
 
   const response = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
+    model: 'openai/gpt-oss-120b',
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.7,
     max_tokens: 1200,
@@ -168,7 +168,7 @@ Return exactly this JSON structure:
 }`;
 
   const response = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
+    model: 'openai/gpt-oss-120b',
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.8,
     max_tokens: 1200,
@@ -200,7 +200,7 @@ Return exactly this JSON structure:
 }`;
 
   const response = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
+    model: 'openai/gpt-oss-120b',
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.7,
     max_tokens: 1000,
@@ -231,7 +231,7 @@ Return ONLY a valid JSON object, no markdown, no explanation:
 }`;
 
   const response = await groq.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
+    model: 'openai/gpt-oss-120b',
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.7,
     max_tokens: 200,
