@@ -1,30 +1,83 @@
 const supabase = require('../integrations/supabase');
 const { createSubscription, cancelSubscription } = require('../integrations/razorpay');
 
+function throwDatabaseError(operation, error) {
+  if (!error) return;
+  console.error(`[subscriptionService] ${operation} failed`, error.code || 'unknown');
+  const failure = new Error(`Could not ${operation}`);
+  failure.code = 'SUBSCRIPTION_PERSISTENCE_FAILED';
+  throw failure;
+}
+
+function nextPeriodEnd() {
+  const end = new Date();
+  end.setMonth(end.getMonth() + 1);
+  return end.toISOString();
+}
+
+function periodEndFromEntity(entity) {
+  const value = entity?.current_end;
+  if (value == null) return null;
+
+  const date = typeof value === 'number' || /^\d+$/.test(String(value))
+    ? new Date(Number(value) * 1000)
+    : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 async function getUserSubscription(userId) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('subscriptions')
     .select('*')
     .eq('user_id', userId)
-    .single();
+    .maybeSingle();
+  throwDatabaseError('read subscription', error);
   return data;
+}
+
+async function getSubscriptionByRazorpayId(razorpaySubscriptionId) {
+  const { data, error } = await supabase
+    .from('subscriptions')
+    .select('*')
+    .eq('razorpay_subscription_id', razorpaySubscriptionId)
+    .maybeSingle();
+  throwDatabaseError('read subscription', error);
+  return data;
+}
+
+async function updateSubscriptionByRazorpayId(razorpaySubscriptionId, values) {
+  const { data, error } = await supabase
+    .from('subscriptions')
+    .update(values)
+    .eq('razorpay_subscription_id', razorpaySubscriptionId)
+    .select('user_id')
+    .maybeSingle();
+  throwDatabaseError('update subscription', error);
+  if (!data) {
+    const failure = new Error('Subscription record not found');
+    failure.code = 'SUBSCRIPTION_NOT_FOUND';
+    throw failure;
+  }
 }
 
 async function isProUser(userId) {
   const sub = await getUserSubscription(userId);
-  if (!sub) return false;
-  if (sub.status !== 'active') return false;
-  if (sub.current_period_end && new Date(sub.current_period_end) < new Date()) return false;
-  return true;
+  if (!sub || sub.status !== 'active' || !sub.current_period_end) return false;
+  const periodEnd = new Date(sub.current_period_end).getTime();
+  return Number.isFinite(periodEnd) && periodEnd > Date.now();
 }
 
 async function initiateSubscription(userId, email) {
   const existing = await getUserSubscription(userId);
-  if (existing?.status === 'active') throw new Error('Already subscribed');
+  if (existing?.status === 'active') {
+    const failure = new Error('Already subscribed');
+    failure.code = 'ALREADY_SUBSCRIBED';
+    throw failure;
+  }
 
   const subscription = await createSubscription(userId, email);
 
-  await supabase
+  const { error } = await supabase
     .from('subscriptions')
     .upsert({
       user_id: userId,
@@ -32,53 +85,66 @@ async function initiateSubscription(userId, email) {
       plan_id: process.env.RAZORPAY_PLAN_ID,
       status: 'free',
       updated_at: new Date().toISOString(),
-    });
+    }, { onConflict: 'user_id' })
+    .select('user_id')
+    .single();
+  throwDatabaseError('save subscription', error);
 
   return subscription;
 }
 
-async function activateSubscription(razorpaySubscriptionId) {
-  const { data: sub } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .eq('razorpay_subscription_id', razorpaySubscriptionId)
-    .single();
-
+async function activateSubscription(razorpaySubscriptionId, entity = {}) {
+  const sub = await getSubscriptionByRazorpayId(razorpaySubscriptionId);
   if (!sub) {
-    console.error('[subscriptionService] No subscription found for:', razorpaySubscriptionId);
-    return;
+    const failure = new Error('Subscription record not found');
+    failure.code = 'SUBSCRIPTION_NOT_FOUND';
+    throw failure;
   }
 
-  const periodEnd = new Date();
-  periodEnd.setMonth(periodEnd.getMonth() + 1);
-
-  const { error } = await supabase
-    .from('subscriptions')
-    .update({
-      status: 'active',
-      current_period_end: periodEnd.toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('razorpay_subscription_id', razorpaySubscriptionId);
-
-  if (error) console.error('[subscriptionService] activate error:', error.message);
-  else console.log('[subscriptionService] Activated:', razorpaySubscriptionId);
+  const eventPeriodEnd = periodEndFromEntity(entity);
+  const storedPeriodEnd = sub.current_period_end && new Date(sub.current_period_end).getTime() > Date.now()
+    ? sub.current_period_end
+    : null;
+  const periodEnd = [eventPeriodEnd, storedPeriodEnd]
+    .filter(Boolean)
+    .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0];
+  await updateSubscriptionByRazorpayId(razorpaySubscriptionId, {
+    status: 'active',
+    current_period_end: periodEnd || nextPeriodEnd(),
+    updated_at: new Date().toISOString(),
+  });
 }
 
-async function renewSubscription(razorpaySubscriptionId) {
-  const periodEnd = new Date();
-  periodEnd.setMonth(periodEnd.getMonth() + 1);
-
-  await supabase
+async function activateVerifiedSubscription(userId, razorpaySubscriptionId) {
+  const { data: sub, error } = await supabase
     .from('subscriptions')
-    .update({
-      status: 'active',
-      current_period_end: periodEnd.toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('razorpay_subscription_id', razorpaySubscriptionId);
+    .select('*')
+    .eq('user_id', userId)
+    .eq('razorpay_subscription_id', razorpaySubscriptionId)
+    .maybeSingle();
+  throwDatabaseError('verify subscription ownership', error);
+  if (!sub) {
+    const failure = new Error('Subscription record not found for this account');
+    failure.code = 'SUBSCRIPTION_NOT_FOUND';
+    throw failure;
+  }
 
-  console.log('[subscriptionService] Renewed:', razorpaySubscriptionId);
+  await activateSubscription(razorpaySubscriptionId);
+}
+
+async function renewSubscription(razorpaySubscriptionId, entity) {
+  const currentPeriodEnd = periodEndFromEntity(entity);
+  if (!currentPeriodEnd) {
+    const failure = new Error('Renewal event is missing its billing period end');
+    failure.code = 'INVALID_SUBSCRIPTION_EVENT';
+    throw failure;
+  }
+
+  await updateSubscriptionByRazorpayId(razorpaySubscriptionId, {
+    status: 'active',
+    current_period_end: currentPeriodEnd,
+    updated_at: new Date().toISOString(),
+  });
 }
 
 async function cancelUserSubscription(userId) {
@@ -87,48 +153,55 @@ async function cancelUserSubscription(userId) {
 
   await cancelSubscription(sub.razorpay_subscription_id);
 
-  await supabase
+  const { data, error } = await supabase
     .from('subscriptions')
     .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-    .eq('user_id', userId);
+    .eq('user_id', userId)
+    .select('user_id')
+    .maybeSingle();
+  throwDatabaseError('cancel subscription', error);
+  if (!data) {
+    const failure = new Error('Subscription record not found');
+    failure.code = 'SUBSCRIPTION_NOT_FOUND';
+    throw failure;
+  }
 }
 
 async function handleWebhookEvent(event, payload) {
+  const supportedEvents = new Set([
+    'subscription.activated',
+    'subscription.charged',
+    'subscription.cancelled',
+    'subscription.halted',
+  ]);
+  if (!supportedEvents.has(event)) return;
+
   const subscriptionId = payload?.id || payload?.subscription?.id;
   if (!subscriptionId) {
-    console.error('[webhook] No subscription ID in payload');
-    return;
+    const failure = new Error('Subscription event is missing its subscription ID');
+    failure.code = 'INVALID_SUBSCRIPTION_EVENT';
+    throw failure;
   }
 
-  console.log('[webhook] Event:', event, 'Sub ID:', subscriptionId);
-
-  if (event === 'subscription.activated') {
-    await activateSubscription(subscriptionId);
-  }
-
-  if (event === 'subscription.charged') {
-    await renewSubscription(subscriptionId);
-  }
-
+  if (event === 'subscription.activated') return activateSubscription(subscriptionId, payload);
+  if (event === 'subscription.charged') return renewSubscription(subscriptionId, payload);
   if (event === 'subscription.cancelled') {
-    await supabase
-      .from('subscriptions')
-      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-      .eq('razorpay_subscription_id', subscriptionId);
+    return updateSubscriptionByRazorpayId(subscriptionId, {
+      status: 'cancelled',
+      updated_at: new Date().toISOString(),
+    });
   }
-
-  if (event === 'subscription.halted') {
-    await supabase
-      .from('subscriptions')
-      .update({ status: 'halted', updated_at: new Date().toISOString() })
-      .eq('razorpay_subscription_id', subscriptionId);
-  }
+  return updateSubscriptionByRazorpayId(subscriptionId, {
+    status: 'halted',
+    updated_at: new Date().toISOString(),
+  });
 }
 
 module.exports = {
   getUserSubscription,
   isProUser,
   initiateSubscription,
+  activateVerifiedSubscription,
   cancelUserSubscription,
   handleWebhookEvent,
 };

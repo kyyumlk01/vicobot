@@ -6,6 +6,12 @@ import { useRouter } from 'next/navigation';
 import { API_URL } from '@/lib/api';
 import Link from 'next/link';
 
+interface RazorpayCheckoutSuccess {
+  razorpay_payment_id: string;
+  razorpay_subscription_id: string;
+  razorpay_signature: string;
+}
+
 declare global {
   interface Window {
     Razorpay: new (options: Record<string, unknown>) => {
@@ -19,6 +25,8 @@ export default function UpgradePage() {
   const [loading, setLoading] = useState(true);
   const [subStatus, setSubStatus] = useState('free');
   const [processing, setProcessing] = useState(false);
+  const [activationStatus, setActivationStatus] = useState<'idle' | 'verifying' | 'activating' | 'pending'>('idle');
+  const [pendingPayment, setPendingPayment] = useState<RazorpayCheckoutSuccess | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState('');
   const router = useRouter();
@@ -45,6 +53,59 @@ export default function UpgradePage() {
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     document.head.appendChild(script);
   }, []);
+
+  async function refreshSubscription(accessToken: string) {
+    const res = await fetch(`${API_URL}/api/subscription`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return false;
+
+    const data = await res.json();
+    setSubStatus(data.status || 'free');
+    return data.status === 'active';
+  }
+
+  async function verifyPayment(response: RazorpayCheckoutSuccess) {
+    setError('');
+    setPendingPayment(response);
+    setActivationStatus('verifying');
+    setProcessing(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Your session expired. Please sign in again.');
+
+      const verification = await fetch(`${API_URL}/api/subscription/verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(response),
+      });
+      const verificationData = await verification.json();
+      if (!verification.ok) throw new Error(verificationData.error || 'Payment verification failed');
+
+      setActivationStatus('activating');
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        if (await refreshSubscription(session.access_token)) {
+          setPendingPayment(null);
+          setActivationStatus('idle');
+          router.push('/dashboard');
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 750));
+      }
+
+      setActivationStatus('pending');
+      setError('Payment verified. Pro is still activating. Check again shortly.');
+    } catch (err) {
+      setActivationStatus('pending');
+      setError(err instanceof Error ? err.message : 'Payment verification is pending. Please retry.');
+    } finally {
+      setProcessing(false);
+    }
+  }
 
   async function handleUpgrade() {
     setError('');
@@ -79,15 +140,13 @@ export default function UpgradePage() {
           email: user?.email || '',
         },
         theme: { color: '#FF8A4C' },
-        handler: async () => {
-          setSubStatus('active');
-          setProcessing(false);
-          router.push('/dashboard');
-        },
+        handler: (response: RazorpayCheckoutSuccess) => { void verifyPayment(response); },
       });
 
       rzp.on('payment.failed', () => {
         setError('Payment failed. Please try again.');
+        setPendingPayment(null);
+        setActivationStatus('idle');
         setProcessing(false);
       });
 
@@ -203,6 +262,17 @@ export default function UpgradePage() {
                   {cancelling ? 'Cancelling...' : 'Cancel subscription'}
                 </button>
               </div>
+            ) : activationStatus !== 'idle' ? (
+              <button
+                className="btn-grad"
+                onClick={() => pendingPayment && void verifyPayment(pendingPayment)}
+                disabled={processing || !pendingPayment}
+                style={{ width: '100%', justifyContent: 'center', padding: '14px', fontSize: 16, opacity: processing ? 0.7 : 1 }}
+              >
+                {processing
+                  ? activationStatus === 'activating' ? 'Activating Pro...' : 'Verifying payment...'
+                  : 'Check Pro activation'}
+              </button>
             ) : (
               <button
                 className="btn-grad"
